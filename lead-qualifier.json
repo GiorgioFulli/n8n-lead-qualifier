@@ -1,0 +1,339 @@
+{
+  "name": "Lead Qualifier",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Get in touch",
+        "formDescription": "Tell us what you need and we'll get back to you within one business day.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Name"
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email"
+            },
+            {
+              "fieldLabel": "Phone Number"
+            },
+            {
+              "fieldLabel": "Enquiry",
+              "fieldType": "textarea"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        0
+      ],
+      "id": "a1838451-d58a-4944-b231-62a7199019e8",
+      "name": "On form submission"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "claude-haiku-5-5",
+          "mode": "list",
+          "cachedResultName": "claude-haiku-5-5"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Client Name: {{ $json.Name }}\nEnquiry: {{ $json.Enquiry }}"
+            }
+          ]
+        },
+        "options": {
+          "system": "You qualify property enquiries for a real estate agency in Melbourne.\n\nScore each enquiry as exactly one of: hot, warm, cold.\n\nhot: The buyer must have all of the following: a stated budget, finance pre-approval (or says they are paying cash), clear requirements for the property they want, and a plan to buy within the next 3 months. Signals that make it stronger: specific suburbs, buildings or addresses, a firm deadline, or a request to be contacted or to inspect.\n\nwarm: The buyer has real intent but is missing at least one hot requirement. For example, they have a price range and a rough idea of what they want but no pre-approval yet, or they are pre-approved but plan to buy more than 3 months from now.\n\ncold: The person is browsing or curious, does not know what they want, has no budget, or has no plan to buy.\n\nIf the enquiry is from someone who wants to sell a property or get an appraisal, score it hot and start the summary with \"Seller:\".\n\nIf an enquiry is unclear or not about buying or selling property, score it cold.\n\nReply with only a JSON object and nothing else. No markdown, no code fences, no explanation. Use this format:\n{\"score\": \"hot\", \"summary\": \"One sentence summarising the lead and what they want.\"}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [
+        224,
+        0
+      ],
+      "id": "04df4f78-9901-4417-82c4-1301a0030bbb",
+      "name": "Message a model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "5dC1OPElK2mOQtEL",
+          "name": "n8n-lead-qualifier"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "email": "={{ $('On form submission').item.json.Email }}",
+        "additionalFields": {
+          "contactOwner": "YOUR_HUBSPOT_OWNER_ID",
+          "customPropertiesUi": {
+            "customPropertiesValues": [
+              {
+                "property": "ai_lead_score",
+                "value": "={{ $json.score }}"
+              },
+              {
+                "property": "ai_lead_summary",
+                "value": "={{ $json.summary }}"
+              }
+            ]
+          },
+          "firstName": "={{ $('On form submission').item.json.Name.split(' ')[0] }}",
+          "lastName": "={{ $('On form submission').item.json.Name.split(' ').slice(1).join(' ') }}",
+          "phoneNumber": "={{ $('On form submission').item.json['Phone Number'] }}"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.2,
+      "position": [
+        832,
+        0
+      ],
+      "id": "59fe1be5-4f44-45b0-8987-3869e9d5ea0b",
+      "name": "HubSpot: create or update contact",
+      "credentials": {
+        "hubspotOAuth2Api": {
+          "id": "lup5g527LYd6Ip2o",
+          "name": "hubspot-lead-qualifier"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f3afcddb-4231-47ae-940b-b9553e88574f",
+              "name": "score",
+              "value": "={{ JSON.parse($json.content.find(block => block.type === 'text').text).score }}",
+              "type": "string"
+            },
+            {
+              "id": "19805956-f042-4204-a1e2-58bd25493f18",
+              "name": "summary",
+              "value": "={{ JSON.parse($json.content.find(block => block.type === 'text').text).summary }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        592,
+        0
+      ],
+      "id": "41eb4606-bae3-407c-a4bf-15599c4483ef",
+      "name": "Parse Claude score"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "a7ada80d-1b3f-409d-a4a3-b77fcaf03a2b",
+              "leftValue": "={{ $('Parse Claude score').item.json.score }}",
+              "rightValue": "hot",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        1056,
+        0
+      ],
+      "id": "d86db729-508f-4b0f-a022-bc0e1f374b70",
+      "name": "Is lead hot?"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "deal",
+        "stage": "qualifiedtobuy",
+        "additionalFields": {
+          "associatedVids": "={{ [$json.vid] }}",
+          "dealName": "={{ $('On form submission').item.json.Name }} purchase",
+          "dealOwner": {
+            "__rl": true,
+            "value": "YOUR_HUBSPOT_OWNER_ID",
+            "mode": "id"
+          },
+          "dealType": "newbusiness"
+        }
+      },
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.2,
+      "position": [
+        1280,
+        -128
+      ],
+      "id": "807db836-b641-4f2d-97cb-f0ffb806277b",
+      "name": "HubSpot: create deal",
+      "credentials": {
+        "hubspotOAuth2Api": {
+          "id": "lup5g527LYd6Ip2o",
+          "name": "hubspot-lead-qualifier"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/tasks",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"properties\": {\n    \"hs_task_subject\": \"Call {{ $('On form submission').item.json.Name }}\",\n    \"hs_timestamp\": \"{{ $now.plus({ hours: 3 }).toISO() }}\",\n    \"hubspot_owner_id\": \"{{ $json.properties.hubspot_owner_id.value }}\",\n    \"hs_task_status\": \"NOT_STARTED\",\n    \"hs_task_type\": \"CALL\"\n  },\n  \"associations\": [\n    {\n      \"to\": { \"id\": \"{{ $('HubSpot: create or update contact').item.json.vid }}\" },\n      \"types\": [\n        { \"associationCategory\": \"HUBSPOT_DEFINED\", \"associationTypeId\": 204 }\n      ]\n    },\n    {\n      \"to\": { \"id\": \"{{ $json.dealId }}\" },\n      \"types\": [\n        { \"associationCategory\": \"HUBSPOT_DEFINED\", \"associationTypeId\": 216 }\n      ]\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1488,
+        64
+      ],
+      "id": "d3579e25-db27-4f60-860d-2c46fc0ff896",
+      "name": "HubSpot: create task",
+      "credentials": {
+        "hubspotOAuth2Api": {
+          "id": "lup5g527LYd6Ip2o",
+          "name": "hubspot-lead-qualifier"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "=New lead: {{ $('On form submission').item.json.Name }}\nScore: {{ $('Parse Claude score').item.json.score.toUpperCase() }}\n{{ $('Parse Claude score').item.json.summary }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1008,
+        -208
+      ],
+      "id": "a17ae5e5-579a-4410-8a4a-710313e57385",
+      "name": "Telegram: notify me",
+      "credentials": {
+        "telegramApi": {
+          "id": "aMNCEbyOElc9fGU2",
+          "name": "telegram-lead-qualifier"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Parse Claude score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Claude score": {
+      "main": [
+        [
+          {
+            "node": "HubSpot: create or update contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HubSpot: create or update contact": {
+      "main": [
+        [
+          {
+            "node": "Is lead hot?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Telegram: notify me",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is lead hot?": {
+      "main": [
+        [
+          {
+            "node": "HubSpot: create deal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HubSpot: create deal": {
+      "main": [
+        [
+          {
+            "node": "HubSpot: create task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "c39b128e-d397-46f3-b44a-f8096842013b",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "id": "uqMQKTi6Yf62c9Qm",
+  "tags": []
+}
