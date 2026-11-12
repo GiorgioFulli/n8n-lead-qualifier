@@ -1,6 +1,7 @@
 # n8n Lead Qualifier: AI-scored property enquiries into HubSpot
 
 **▶️ [Watch the 2-minute demo](https://www.loom.com/share/7f1632372f7449f4a744a1c9e89c61a2)**
+
 A real estate enquiry comes in through a web form. Claude reads it and scores the lead hot, warm or cold against criteria I wrote from nearly two years as a sales associate at Ray White Southbank. Every lead lands in HubSpot with its score, and I get a Telegram message straight away. Hot leads also get a deal in the pipeline and a call task due within 3 hours, assigned to the agent.
 
 The problem it solves: in a busy sales team, enquiries arrive unsorted and the best ones wait in the same queue as the casual browsers. This puts the ready-to-buy leads in front of the agent within minutes.
